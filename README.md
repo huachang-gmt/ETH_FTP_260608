@@ -10,6 +10,8 @@
 ![Status](https://img.shields.io/badge/Status-Prototype-success)
 
 ---
+## 檔案修改更新紀錄在最底層紀錄
+---
 
 # Overview
 
@@ -481,4 +483,25 @@ The project provides a practical example of how the OSI model is implemented on 
 * CM4\Core\Src\main.c
 * CM4\Core\Src\tcp_server.c
 * CM4\Core\Inc\tcp_server.h
+
+---
+# 檔案修改紀錄
+
+### [2026-06-18]
+1. 使用 Filezilla client 連接 CM4 FTP Server 式採用預設 被動模式 (PASV) 連接，上一版本程式 CM4\Core\Src\tcp_server.c 雖然可以做到首次連線可以成功並看到 虛擬檔案列表， 但執行 F5 Refresh 就會斷線。
+2. 更新版本已經修復此問題，首次連上線後，顯示虛擬檔案列表，重複多次 Refresh 都可以正常顯示 虛擬檔案列表，不會中斷連線。
+3. 為什麼這次能成功解決 Refresh 問題？
+資料不會被腰斬：呼叫 send_dir_list 時，程式只負責把資料寫入發送佇列。接著程式就退出了。
+
+非同步安全關閉：當 STM32 的網卡真正把資料送出，且 FileZilla 回覆「我收到了（ACK）」之後，lwIP 內部會觸發我們設定的 ftp_data_sent_callback。這時候再調用 tcp_close(tpcb)，通道關閉得優雅完整，資料百分之百看得見。
+
+沒有重新綁定 Port 失敗的問題：因為 pasv_pcb（Port 2020 監聽器）從頭到尾常駐在背景，不拆除、不重新 bind，所以不論 FileZilla 點擊 Refresh 的速度有多快，Port 2020 永遠都開著門準備迎接下次的連線，絕對不會產生 ECONNREFUSED 或 ECONNABORTED 的錯誤。
+
+---
+
+## 圖示
+
+![NUCLEO-H755ZI-Q](images/ActiveModeSettings.png)
+
+![NUCLEO-H755ZI-Q](images/FilezillaRefreshOK.png)
 
